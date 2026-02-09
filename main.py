@@ -174,6 +174,16 @@ def write_shuxinlan_excel(serials, serial_names, units, pivot, output_path):
 def main():
     _ensure_console_utf8()
     veg_dir = get_vegetable_dir()
+
+    # 如果是 EXE 文件且目录不存在，显示友好提示
+    is_exe = getattr(sys, 'frozen', False)
+    if is_exe and not os.path.isdir(veg_dir):
+        print("错误: 找不到 Vegetable 文件夹")
+        print("请在程序所在目录创建 Vegetable 文件夹")
+        print("并将 Excel 文件放入其中")
+        input("按回车键退出...")
+        return
+
     if not os.path.isdir(veg_dir):
         print(f"目录不存在: {veg_dir}")
         return
