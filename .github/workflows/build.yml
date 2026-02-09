@@ -45,11 +45,10 @@ jobs:
 
     - name: Build EXE file
       run: |
-        pyinstaller --onefile ^
-          --name "蔬心兰汇总工具" ^
-          --hidden-import=xlrd ^
-          --hidden-import=openpyxl ^
-          --add-data "README.md;." ^  # 如果需要包含其他文件
+        pyinstaller --onefile `
+          --name "蔬心兰汇总工具" `
+          --hidden-import=xlrd `
+          --hidden-import=openpyxl `
           main.py
 
     - name: Test the EXE
