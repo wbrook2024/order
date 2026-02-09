@@ -39,9 +39,9 @@ jobs:
     - name: Create test directory (for building)
       run: |
         # 创建 Vegetable 文件夹避免程序错误
-         
-        if not exist Vegetable mkdir Vegetable
-        echo "创建测试目录完成" > Vegetable/readme.txt
+        if (!(Test-Path Vegetable)) {
+          New-Item -ItemType Directory -Path Vegetable -Force
+        }
 
     - name: Build EXE file
       run: |
