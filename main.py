@@ -32,7 +32,13 @@ def _ensure_console_utf8():
 
 def get_vegetable_dir():
     """Vegetable 目录路径（当前脚本所在目录下的 Vegetable 文件夹）。"""
-    base = os.path.dirname(os.path.abspath(__file__))
+    # 处理 EXE 打包后的情况
+    if getattr(sys, 'frozen', False):
+        # 获取 EXE 文件所在目录
+        base = os.path.dirname(sys.executable)
+    else:
+        # 正常脚本运行情况
+        base = os.path.dirname(os.path.abspath(__file__))
     return os.path.join(base, "Vegetable")
 
 
@@ -174,6 +180,7 @@ def write_shuxinlan_excel(serials, serial_names, units, pivot, output_path):
 def main():
     _ensure_console_utf8()
     veg_dir = get_vegetable_dir()
+    print(f"路径：{veg_dir}")
 
     # 如果是 EXE 文件且目录不存在，显示友好提示
     is_exe = getattr(sys, 'frozen', False)
@@ -217,7 +224,11 @@ def main():
     all_data = collect_all_data(veg_dir, excel_files)
     if all_data:
         serials, serial_names, units, pivot = build_pivot_table(all_data)
-        base_dir = os.path.dirname(os.path.abspath(__file__))
+        # 使用与 Vegetable 文件夹相同的基础目录
+        if getattr(sys, 'frozen', False):
+            base_dir = os.path.dirname(sys.executable)
+        else:
+            base_dir = os.path.dirname(os.path.abspath(__file__))
         out_path = os.path.join(base_dir, "蔬心兰.xlsx")
         write_shuxinlan_excel(serials, serial_names, units, pivot, out_path)
         print(f"\n已生成汇总表: {out_path}")
