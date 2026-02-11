@@ -73,6 +73,12 @@ def read_sheet(sheet):
     # 第一行作为单位（取第一个非空单元格或整行拼接）
     unit_cells = [str(sheet.cell_value(0, c)).strip() for c in range(sheet.ncols)]
     unit = "".join(unit_cells).strip() or "(未填写单位)"
+    # 移除"-（包含）及后面的字符"
+    if "-（包含）" in unit:
+        unit = unit.split("-（包含）")[0].strip()
+    # 移除"-采购配送单"
+    if "-采购配送单" in unit:
+        unit = unit.split("-采购配送单")[0].strip()
 
     header_row, col_xuhao, col_name, col_yifa = find_header_row(sheet)
     if header_row is None or col_name is None or col_yifa is None:
@@ -161,19 +167,44 @@ def write_shuxinlan_excel(serials, serial_names, units, pivot, output_path):
         print("错误: 未安装 openpyxl，无法生成蔬心兰.xlsx", file=sys.stderr)
         print("请运行: pip install openpyxl", file=sys.stderr)
         sys.exit(1)
+    from openpyxl.styles import Border, Side, Alignment
+    # 定义边框样式
+    thin_border = Border(
+        left=Side(style='thin'),
+        right=Side(style='thin'),
+        top=Side(style='thin'),
+        bottom=Side(style='thin')
+    )
+    # 定义自动换行对齐方式
+    wrap_alignment = Alignment(wrap_text=True)
+    # 定义表头居中对齐方式
+    header_alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
     wb = Workbook()
     ws = wb.active
     ws.title = "汇总"
-    ws.cell(row=1, column=1, value="序号")
-    ws.cell(row=1, column=2, value="商品名称")
-    for c, unit in enumerate(units, start=3):
+    # 设置打印标题行，使得每一页都显示表头
+    ws.print_title_rows = "1:1"
+    ws.cell(row=1, column=1, value="商品名称")
+    # 调整第一列宽度，以便更好地显示商品名称
+    ws.column_dimensions['A'].width = 30
+    for c, unit in enumerate(units, start=2):
         ws.cell(row=1, column=c, value=unit)
     for r, xuhao in enumerate(serials, start=2):
-        ws.cell(row=r, column=1, value=xuhao)
-        ws.cell(row=r, column=2, value=serial_names.get(xuhao, ""))
-        for c, unit in enumerate(units, start=3):
+        ws.cell(row=r, column=1, value=serial_names.get(xuhao, ""))
+        for c, unit in enumerate(units, start=2):
             val = pivot.get((xuhao, unit), "")
             ws.cell(row=r, column=c, value=val if val != "" else "")
+    # 应用边框和对齐方式到所有单元格
+    max_row = len(serials) + 1
+    max_col = len(units) + 1
+    for row in ws.iter_rows(min_row=1, max_row=max_row, min_col=1, max_col=max_col):
+        for cell in row:
+            cell.border = thin_border
+            # 第一行为表头，设置居中对齐
+            if cell.row == 1:
+                cell.alignment = header_alignment
+            else:
+                cell.alignment = wrap_alignment
     wb.save(output_path)
 
 
