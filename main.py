@@ -162,7 +162,9 @@ def build_pivot_table(all_data):
 
 
 def write_shuxinlan_excel(serials, serial_names, units, pivot, output_path):
-    """生成 蔬心兰.xlsx：按商品序号合并行，第一列序号，第二列商品名称，后续列为各单位。"""
+    """
+    生成 蔬心兰.xlsx：按商品序号合并行，第一列序号，第二列商品名称，后续列为各单位。
+    """
     if Workbook is None:
         print("错误: 未安装 openpyxl，无法生成蔬心兰.xlsx", file=sys.stderr)
         print("请运行: pip install openpyxl", file=sys.stderr)
@@ -189,14 +191,23 @@ def write_shuxinlan_excel(serials, serial_names, units, pivot, output_path):
     ws.column_dimensions['A'].width = 30
     for c, unit in enumerate(units, start=2):
         ws.cell(row=1, column=c, value=unit)
+    # 添加“合计”列标题
+    total_col = len(units) + 2
+    ws.cell(row=1, column=total_col, value="合计")
     for r, xuhao in enumerate(serials, start=2):
         ws.cell(row=r, column=1, value=serial_names.get(xuhao, ""))
+        # 计算合计值
+        total = 0
         for c, unit in enumerate(units, start=2):
             val = pivot.get((xuhao, unit), "")
             ws.cell(row=r, column=c, value=val if val != "" else "")
+            if val:
+                total += val
+        # 写入合计值
+        ws.cell(row=r, column=total_col, value=total)
     # 应用边框和对齐方式到所有单元格
     max_row = len(serials) + 1
-    max_col = len(units) + 1
+    max_col = len(units) + 2  # 增加一列合计
     for row in ws.iter_rows(min_row=1, max_row=max_row, min_col=1, max_col=max_col):
         for cell in row:
             cell.border = thin_border
