@@ -73,7 +73,7 @@ def read_sheet(sheet):
     # 第一行作为单位（取第一个非空单元格或整行拼接）
     unit_cells = [str(sheet.cell_value(0, c)).strip() for c in range(sheet.ncols)]
     unit = "".join(unit_cells).strip() or "(未填写单位)"
-    # 移除"-（包含）"及后面的字符
+    # 移除"-（包含）及后面的字符"
     if "-（包含）" in unit:
         unit = unit.split("-（包含）")[0].strip()
     # 移除"-采购配送单"
@@ -139,28 +139,31 @@ def collect_all_data(veg_dir, excel_files):
 
 def build_pivot_table(all_data):
     """
-    按商品名称合并：相同商品名称为一行，各单位数量相加。
-    返回 (商品名称列表, 单位列表, {(商品名称, 单位): 数量})。
+    按商品序号合并：同一序号的商品为一行，各单位数量相加。
+    返回 (序号列表, {序号: 商品名称拼接}, 单位列表, {(序号, 单位): 数量})。
     """
     units_set = set()
-    pivot = {}  # (商品名称, unit) -> qty（同商品同单位数量相加）
-    
+    serial_to_names = {}  # 序号 -> set of 商品名称（合并后用 " / " 拼接）
+    pivot = {}  # (序号, unit) -> qty（同序号同单位数量相加）
     for unit, items in all_data:
         units_set.add(unit)
         for xuhao, name, qty in items:
-            key = (name, unit)
+            if xuhao not in serial_to_names:
+                serial_to_names[xuhao] = set()
+            serial_to_names[xuhao].add(name)
+            key = (xuhao, unit)
             pivot[key] = pivot.get(key, 0) + qty
-    
-    # 获取所有唯一的商品名称，按名称排序（中文按拼音排序）
-    all_products = sorted(set(name for _, items in all_data for _, name, _ in items))
+    # 序号排序：有号的在前，空序号在后
+    serials = sorted(serial_to_names.keys(), key=lambda x: (x == "", x))
     units = sorted(units_set)
-    
-    return all_products, units, pivot
+    # 每个序号对应的商品名称（多个用 " / " 连接）
+    serial_names = {xuhao: " / ".join(sorted(names)) for xuhao, names in serial_to_names.items()}
+    return serials, serial_names, units, pivot
 
 
-def write_shuxinlan_excel(products, units, pivot, output_path):
+def write_shuxinlan_excel(serials, serial_names, units, pivot, output_path):
     """
-    生成 蔬心兰.xlsx：按商品名称合并行，第一列商品名称，后续列为各单位。
+    生成 蔬心兰.xlsx：按商品序号合并行，第一列序号，第二列商品名称，后续列为各单位。
     """
     if Workbook is None:
         print("错误: 未安装 openpyxl，无法生成蔬心兰.xlsx", file=sys.stderr)
@@ -188,22 +191,22 @@ def write_shuxinlan_excel(products, units, pivot, output_path):
     ws.column_dimensions['A'].width = 30
     for c, unit in enumerate(units, start=2):
         ws.cell(row=1, column=c, value=unit)
-    # 添加"合计"列标题
+    # 添加“合计”列标题
     total_col = len(units) + 2
     ws.cell(row=1, column=total_col, value="合计")
-    for r, product in enumerate(products, start=2):
-        ws.cell(row=r, column=1, value=product)
+    for r, xuhao in enumerate(serials, start=2):
+        ws.cell(row=r, column=1, value=serial_names.get(xuhao, ""))
         # 计算合计值
         total = 0
         for c, unit in enumerate(units, start=2):
-            val = pivot.get((product, unit), "")
+            val = pivot.get((xuhao, unit), "")
             ws.cell(row=r, column=c, value=val if val != "" else "")
             if val:
                 total += val
         # 写入合计值
         ws.cell(row=r, column=total_col, value=total)
     # 应用边框和对齐方式到所有单元格
-    max_row = len(products) + 1
+    max_row = len(serials) + 1
     max_col = len(units) + 2  # 增加一列合计
     for row in ws.iter_rows(min_row=1, max_row=max_row, min_col=1, max_col=max_col):
         for cell in row:
@@ -262,16 +265,16 @@ def main():
     # 生成蔬心兰.xlsx：单位为列，商品为行
     all_data = collect_all_data(veg_dir, excel_files)
     if all_data:
-        products, units, pivot = build_pivot_table(all_data)
+        serials, serial_names, units, pivot = build_pivot_table(all_data)
         # 使用与 Vegetable 文件夹相同的基础目录
         if getattr(sys, 'frozen', False):
             base_dir = os.path.dirname(sys.executable)
         else:
             base_dir = os.path.dirname(os.path.abspath(__file__))
         out_path = os.path.join(base_dir, "蔬心兰.xlsx")
-        write_shuxinlan_excel(products, units, pivot, out_path)
+        write_shuxinlan_excel(serials, serial_names, units, pivot, out_path)
         print(f"\n已生成汇总表: {out_path}")
-        print(f"  行（按商品名称合并）: {len(products)}，列（单位）: {len(units)}")
+        print(f"  行（按商品序号合并）: {len(serials)}，列（单位）: {len(units)}")
     else:
         print("\n无数据，未生成蔬心兰.xlsx")
 
